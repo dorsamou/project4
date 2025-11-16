@@ -4,13 +4,24 @@
 @author: Sushil Silwal, ssilwal@ucsd.edu 
 """
 import datetime,time
+import os
 import pandas as pd
 from scipy.ndimage import gaussian_filter1d
 import matplotlib.pyplot as plt
 t = time.time()
 #----------------Uncomment the correspond line---------------------------------
+
+
+# Get absolute path of this script
+script_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Build path to CSV file
+file_path = os.path.join(script_dir, '..', 'Data Files', 'PVGenerator', 'BioEngineeringPV.csv')
+
+# Load data
+data_in = pd.read_csv(file_path, parse_dates=['DateTime'])
+
 #data_in=pd.read_csv('TradeStreetPV.csv',parse_dates=['DateTime'])
-data_in=pd.read_csv('BioEngineeringPV.csv',parse_dates=['DateTime'])
 #data_in=pd.read_csv('CSC_BuildingPV.csv',parse_dates=['DateTime'])
 #data_in=pd.read_csv('BSB_LibraryPV.csv',parse_dates=['DateTime'])
 #data_in=pd.read_csv('BSB_BuildingPV.csv',parse_dates=['DateTime'])
