@@ -60,6 +60,12 @@ def replace_with(index: int, timestamps: pd.Series) -> int:
                 return candidate_idx
             n += 1
 
+def combine_power(df1, df2, time_col="DateTime"):
+    merged = pd.merge(df1, df2, on=time_col, how="outer")
+    #merge into one column 
+    merged["RealPower"] = merged["RealPower_x"].fillna(0) + merged["RealPower_y"].fillna(0)
+    return merged[[time_col, "RealPower"]]
+
 
 #fills in the missing timetsamps and fills values with NaN
 def fill_missing_timestamps(df: pd.DataFrame, time_col: str = "DateTime", freq_min: int = 15) -> pd.DataFrame:
