@@ -9,27 +9,17 @@ import pandas as pd
 import numpy as np
 from scipy.ndimage import gaussian_filter1d
 import datetime
-from typing import Optional
 import holidays
-
-#PARENT_DIR = os.path.dirname(os.path.abspath(__file__))
-#does not work in jupyter notebooks 
-CURRENT_DIR = os.getcwd()
-BASE_DIR = os.path.dirname(CURRENT_DIR)
-RAW_DIR = BASE_DIR + "/data/raw"
-FORMATTED_DIR = BASE_DIR + "/data/formatted"
-#make formatted directory if it does not exist already
-os.makedirs(FORMATTED_DIR, exist_ok=True)
-
-#creates object containing US holidays with years that span the data range January 1, 2015 to February 29, 2020
-US_HOLIDAYS = holidays.US(years=range(2015, 2020))
-
+from typing import Optional
+from src.config.paths import RAW_DATA_PATH, FORMATTED_DATA_PATH
 
 #Helper functions
 # returns True if the given timestamp is a US business day (not a weekend or holiday)
-def is_business_day(timestamp: pd.Timestamp) -> bool:
+def is_business_day(timestamp: pd.Timestamp, year_min: int = 2015, year_max: int = 2020) -> bool:
     day = timestamp.date()
     # Monday = 0 - Sunday = 6
+    #creates object containing US holidays with years that span the data range 
+    US_HOLIDAYS = holidays.US(years=range(year_min, year_max))
     return (timestamp.weekday() < 5) and (day not in US_HOLIDAYS)
 
 #returns the index to replace missing data with 
@@ -70,27 +60,40 @@ def combine_power(df1, df2, time_col="DateTime"):
 #fills in the missing timetsamps and fills values with NaN
 def fill_missing_timestamps(df: pd.DataFrame, time_col: str = "DateTime", freq_min: int = 15) -> pd.DataFrame:
     df = df.copy()
-    #converts time column to datetime format and drops rows with invalid datetime values
     df[time_col] = pd.to_datetime(df[time_col], errors="coerce")
-
-    #sorts by time 
     df = df.dropna(subset=[time_col]).sort_values(time_col).reset_index(drop=True)
 
-    #creates a complete datetime index from start to end with specified frequency
+    # Ensure RealPower stays numeric so it doesn't get dropped
+    if "RealPower" in df.columns:
+        df["RealPower"] = pd.to_numeric(df["RealPower"], errors="coerce")
+
     start = df[time_col].iloc[0]
     end = df[time_col].iloc[-1]
     full_index = pd.date_range(start=start, end=end, freq=f"{freq_min}min")
-
-    #reindexes the dataframe to include all timestamps, missing timestamps will have NaN values, also deals with duplicates by averaging
-    df = df.groupby(time_col).mean().reindex(full_index).rename_axis(time_col).reset_index()
+    df = (
+        df.groupby(time_col)
+          .mean(numeric_only=True)
+          .reindex(full_index)
+          .rename_axis(time_col)
+          .reset_index()
+    )
 
     return df
 
 
-def save_formatted_df(df: pd.DataFrame, raw_filename: str, suffix: str = "_processed"):
+def save_formatted_df(df: pd.DataFrame, raw_filename: str, suffix: str = "_formatted"):
+    #check if the formatted file directory exists, if not create it
+    if not os.path.exists(FORMATTED_DATA_PATH):
+        os.makedirs(FORMATTED_DATA_PATH)
+
+    #check if the formatted file already exists
+    if os.path.exists(os.path.join(FORMATTED_DATA_PATH, f"{os.path.splitext(raw_filename)[0]}{suffix}.csv")):
+        print(f"Formatted file already exists for {raw_filename}, skipping save.")
+        return
+    
     base = os.path.splitext(os.path.basename(raw_filename))[0]
     outname = f"{base}{suffix}.csv"
-    outpath = os.path.join(FORMATTED_DIR, outname)
+    outpath = os.path.join(FORMATTED_DATA_PATH, outname)
     df.to_csv(outpath, index=False)
     print(f"Saved formatted file → {outpath}")
     return outpath
@@ -100,12 +103,12 @@ def save_formatted_df(df: pd.DataFrame, raw_filename: str, suffix: str = "_proce
 class BaseFormatter:
     def __init__(self, raw_filename: str):
         self.raw_filename = raw_filename
-        self.raw_path = os.path.join(RAW_DIR, raw_filename)
+        self.raw_path = os.path.join(RAW_DATA_PATH, raw_filename)
         if not os.path.exists(self.raw_path):
             raise FileNotFoundError(f"Raw file not found: {self.raw_path}")
 
     def load_raw(self) -> pd.DataFrame:
-        return pd.read_csv(self.raw_path)
+        return pd.read_csv(self.raw_path, sep=",", parse_dates=["DateTime"])
     
     def load_and_align(self, time_col="DateTime", freq_min: int = 15) -> pd.DataFrame:
         df = self.load_raw()
@@ -113,9 +116,11 @@ class BaseFormatter:
         df = fill_missing_timestamps(df, time_col=time_col, freq_min=freq_min)
         return df
     
-    def aggregate_hourly_kW(self, df: pd.DataFrame) -> pd.DataFrame:
-        #return the mean value for each hour as the values are in KW
-        return df.resample('H').mean()
+    def aggregate_hourly_kW(self, df):
+        df = df.set_index("DateTime")  
+        df = df.resample("h").mean()
+        df = df.reset_index()
+        return df
 
 
 class BatteryStorageFormatter(BaseFormatter):
@@ -128,7 +133,7 @@ class BatteryStorageFormatter(BaseFormatter):
         df = self.load_and_align()
         #DateTime, RealPower
         if df.shape[1] < 2:
-            raise ValueError("Battery file expected to contain DateRime and RealPower columns")
+            raise ValueError("Battery file expected to contain DateTime and RealPower columns")
         power_col = df.columns[1]
         timestamps = df[df.columns[0]]
 
@@ -147,7 +152,7 @@ class BatteryStorageFormatter(BaseFormatter):
                 df.at[i, power_col] = df.at[rep, power_col]
                 replaced += 1
 
-        #df = self.aggregate_hourly_kW(df)
+        df = self.aggregate_hourly_kW(df)
         if save:
             save_formatted_df(df, self.raw_filename)
         return df
@@ -155,7 +160,7 @@ class BatteryStorageFormatter(BaseFormatter):
 class BuildingLoadFormatter(BaseFormatter):
     def __init__(self, raw_filename: str, cal_real: float = 0.4, cal_reactive: float = 0.4):
         super().__init__(raw_filename)
-        #calibration factors convert raw meter readings into real world kW/kVAR values
+        #spike detection thresholds 
         self.cal_real = cal_real
         self.cal_reactive = cal_reactive
 
@@ -208,7 +213,7 @@ class BuildingLoadFormatter(BaseFormatter):
                         error_real += 1
                     else:
                         error_reactive += 1
-        #df = self.aggregate_hourly_kW(df)
+        df = self.aggregate_hourly_kW(df)
 
         if save:
             save_formatted_df(df, self.raw_filename)
@@ -257,7 +262,7 @@ class PVGeneratorFormatter(BaseFormatter):
                     if prev_day_range.max() <= 0.1:
                         df.loc[i - 96:i, real_power] = df.loc[i - 192:i - 96, real_power].values
 
-        #df = self.aggregate_hourly_kW(df)
+        df = self.aggregate_hourly_kW(df)
 
         if save:
             save_formatted_df(df, self.raw_filename)
