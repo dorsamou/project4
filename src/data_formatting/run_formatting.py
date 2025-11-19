@@ -9,6 +9,8 @@ from src.data_formatting.formatting import (
 from src.config.config import DATASETS
 from src.config.paths import FORMATTED_DATA_PATH
 
+#delete the formatted directory in order to run formatting again
+
 def run_formatting():
     for asset, data_info in DATASETS.items():
         ftype = data_info["type"]
