@@ -28,10 +28,28 @@ class Asset(ABC):
         self.df = self.df.sort_values("DateTime").reset_index(drop=True)
 
     def get_data(self, start=None, end=None):
+        #converts start and end to datetime if they are provided
+        if start is not None:
+            start = pd.to_datetime(start)
+        if end is not None:
+            end = pd.to_datetime(end)
+
+
+        if not self.check_dates_exists(start, end):
+            raise ValueError("Requested date range is out of bounds.")
+        
         df = self.df
         if start:
             df = df[df["DateTime"] >= start]
         if end:
-            df = df[df["DateTime"] <= end]
+            df = df[df["DateTime"] < end]
+
         return df
+    
+    def check_dates_exists(self, start=None, end=None):
+        if start and start < self.df["DateTime"].min():
+            return False
+        if end and end > self.df["DateTime"].max():
+            return False
+        return True
 
