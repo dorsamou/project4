@@ -250,3 +250,10 @@ DATASETS = {
         "rating_kwh": 5000
     }
 }
+
+COLUMN_NAMES = {
+    "datetime": "DateTime",
+    "real_power": "RealPower",
+    "reactive_power": "ReactivePower",
+    "soc": "SOC"
+}
