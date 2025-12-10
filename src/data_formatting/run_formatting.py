@@ -6,7 +6,7 @@ from src.data_formatting.formatting import (
     combine_power,
     save_formatted_df
 )
-from src.config.config import DATASETS
+from config.data_config import DATASETS
 from src.config.paths import FORMATTED_DATA_PATH
 
 #delete the formatted directory in order to run formatting again

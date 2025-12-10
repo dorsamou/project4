@@ -219,7 +219,7 @@ class BuildingLoadFormatter(BaseFormatter):
             save_formatted_df(df, self.raw_filename)
         return df
 
-#TODO set all negative values in input data to 0
+#TODO set all negative values in input data to 0, done in get_generation_profile in pv_generator.py currently
 class PVGeneratorFormatter(BaseFormatter):
     #DateTime, RealPower
     def __init__(self, raw_filename: str):

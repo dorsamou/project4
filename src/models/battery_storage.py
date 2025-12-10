@@ -1,5 +1,5 @@
 from src.models.abstract_asset import Asset
-from src.config.config import DATASETS
+from src.config.data_config  import DATASETS
 
 class BatteryStorage(Asset):
     def __init__(self, name):
