@@ -18,7 +18,7 @@ def get_carbon_intensity(timestamp: pd.Timestamp) -> float:
 
 #returns array of carbon intensity values for given timestamps
 def get_carbon_intensity_array(timestamps: np.ndarray) -> np.ndarray:
-    timestamps_pd = [pd.Timestamp(ts) for ts in timestamps]
+    timestamps_pd = [pd.Timestamp(ts, unit='s') for ts in timestamps]
     carbon_values = [get_carbon_intensity(ts) for ts in timestamps_pd]
     return np.array(carbon_values)
 

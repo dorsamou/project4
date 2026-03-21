@@ -146,8 +146,12 @@ st.sidebar.markdown("### Optimization Settings")
 
 objective_type = st.sidebar.radio(
     "Optimization Objective:",
-    options=["cost", "emissions"],
-    format_func=lambda x: "Minimize Cost" if x == "cost" else "Minimize Emissions",
+    options=["cost", "emissions", "weighted"],
+    format_func=lambda x: {
+        "cost": "Minimize Cost",
+        "emissions": "Minimize Emissions",
+        "weighted": "Weighted Multi-Objective"
+    }[x],
     help="Choose the primary objective for optimization"
 )
 
@@ -185,12 +189,29 @@ with st.sidebar.expander("Advanced Settings"):
         )
     else:
         soc_min, soc_max, soc_penalty_weight = 0.20, 0.80, None
-    
+
+    # Weighted objective weights — only shown when weighted is selected
+    if objective_type == "weighted":
+        st.markdown("**Weighted Objective Weights**")
+        st.caption("Weights control the trade-off between cost and emissions. They do not need to sum to 1.")
+        cost_weight = st.slider("Cost Weight (α)", 0.0, 1.0, 0.5, 0.05)
+        emissions_weight = st.slider("Emissions Weight (β)", 0.0, 1.0, 0.5, 0.05)
+    else:
+        cost_weight = 0.5
+        emissions_weight = 0.5
+
     verbose_optimization = st.checkbox(
         "Show Solver Output",
         value=False,
         help="Display detailed optimization solver logs"
     )
+
+# Objective label helper used across all tabs
+obj_label = {
+    "cost": "Minimize Cost",
+    "emissions": "Minimize Emissions",
+    "weighted": f"Weighted Multi-Objective (α={cost_weight}, β={emissions_weight})"
+}
 
 # Main content area
 tab1, tab2, tab3, tab4 = st.tabs(["Configuration Summary", "Run Optimization", "Results", "About"])
@@ -242,7 +263,7 @@ with tab1:
             st.write(f"**Duration:** {simulation_days} days ({simulation_days * 24} hours)")
         
         with col2:
-            st.write(f"**Objective:** {'Minimize Cost' if objective_type == 'cost' else 'Minimize Emissions'}")
+            st.write(f"**Objective:** {obj_label[objective_type]}")
             st.write(f"**Battery Efficiency:** {round_trip_efficiency * 100:.0f}%")
             st.write(f"**SOC Penalty:** {'Enabled' if include_soc_penalty else 'Disabled'}")
         
@@ -281,9 +302,17 @@ with tab2:
         - **PV Generators:** {len(selected_pvs)} system(s)
         - **Battery Storage:** {len(selected_batteries)} system(s)
         - **Simulation Period:** {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')} ({simulation_days} days)
-        - **Objective:** {'Minimize Cost' if objective_type == 'cost' else 'Minimize Emissions'}
+        - **Objective:** {obj_label[objective_type]}
         """
         st.markdown(config_summary)
+
+        # Extra callout for weighted objective so user understands the weights
+        if objective_type == "weighted":
+            st.info(
+                f"**Weighted objective:** α={cost_weight} × Cost + β={emissions_weight} × Emissions. "
+                "Because cost (dollars) and emissions (gCO₂e) are on different scales, "
+                "adjusting the weights changes which objective dominates rather than splitting them equally."
+            )
         
         # Run optimization button
         if st.button("Run Optimization", type="primary", use_container_width=True):
@@ -313,6 +342,8 @@ with tab2:
                         soc_min=soc_min,
                         soc_max=soc_max,
                         soc_penalty_weight=soc_penalty_weight,
+                        cost_weight=cost_weight,
+                        emissions_weight=emissions_weight,
                         verbose=verbose_optimization
                     )
                     
@@ -393,6 +424,13 @@ with tab3:
                 results['cost_breakdown']['total_cost']
             ]
         })
+
+        if not results['cost_breakdown'].get('demand_charges_applied', True):
+            st.info(
+        "**Demand charges not applied** — demand charges are a monthly billing concept "
+        "and are only included in simulations of 28 days or more. "
+        "Try running a full month to see how demand charges affect the optimization."
+         )
         
         col1, col2 = st.columns([1, 1])
         with col1:
@@ -582,6 +620,7 @@ with tab4:
     **Optimization Objectives:**
     - **Cost Minimization**: Minimize total electricity costs including energy charges and demand charges
     - **Emissions Minimization**: Minimize CO2 emissions from grid electricity
+    - **Weighted Multi-Objective**: Minimize α × Cost + β × Emissions, allowing user-controlled trade-off between the two objectives
     
     **Key Capabilities:**
     - Real building load data from UCSD campus
@@ -619,14 +658,23 @@ with tab4:
     ```
     minimize: sum(carbon_intensity x grid_import x 3.6) + SOC_penalty
     ```
+
+    *Weighted Multi-Objective:*
+    ```
+    minimize: α × cost_objective + β × emissions_objective + SOC_penalty
+    ```
+    where α and β are user-defined weights controlling the cost/emissions trade-off.
+    Note: because cost (dollars) and emissions (gCO₂e) are on different scales,
+    the weights are relative rather than absolute — increasing α makes cost dominate.
     
     ### Usage Tips
     
     1. **Start Small**: Begin with a short simulation period (1-7 days) to understand the tool
     2. **Compare Objectives**: Run the same configuration with both cost and emissions objectives
-    3. **Battery Sizing**: Try different battery configurations to see their impact
-    4. **SOC Constraints**: Experiment with SOC penalty weights to see battery behavior changes
-    5. **Seasonal Variation**: Compare summer vs. winter optimization results
+    3. **Try Weighted**: Use the weighted objective and vary α/β to explore the cost-emissions trade-off
+    4. **Battery Sizing**: Try different battery configurations to see their impact
+    5. **SOC Constraints**: Experiment with SOC penalty weights to see battery behavior changes
+    6. **Seasonal Variation**: Compare summer vs. winter optimization results
     
     ### Data Sources
     

@@ -39,13 +39,14 @@ def get_energy_price(timestamp: pd.Timestamp) -> float:
 #returns array of energy prices for given timestamps
 def get_price_array(timestamps: np.ndarray) -> np.ndarray:
     #convert to pd.Timestamp since functions use pd.Timestamp
-    timestamps_pd = [pd.Timestamp(ts) for ts in timestamps]
+    timestamps_pd = [pd.Timestamp(ts, unit='s') for ts in timestamps]
     prices = [get_energy_price(ts) for ts in timestamps_pd]
     return np.array(prices)
 
 #calculates total cost based on grid import, timestamps, and whether to include demand charges
-def calculate_total_cost(grid_import: np.ndarray, timestamps: np.ndarray, include_demand_charges: bool = True) -> dict:
-    #used for after optimization to analyze costs
+def calculate_total_cost(grid_import: np.ndarray, timestamps: np.ndarray, 
+                         include_demand_charges: bool = True,
+                         simulation_days: int = 1) -> dict:
     energy_prices = get_price_array(timestamps)
     energy_charges = np.sum(energy_prices * grid_import)
     
@@ -53,29 +54,31 @@ def calculate_total_cost(grid_import: np.ndarray, timestamps: np.ndarray, includ
     demand_charge_total = 0.0
     max_demand = 0.0
     on_peak_demand = 0.0
-    
-    if include_demand_charges and len(grid_import) > 0:
-        # Maximum demand charge, applied to the highest power draw in the billing period
+
+    # Demand charges are a monthly billing concept — only apply for full month simulations
+    apply_demand_charges = include_demand_charges and simulation_days >= 28
+
+    if apply_demand_charges and len(grid_import) > 0:
         max_demand = np.max(grid_import)
         max_demand_charge = max_demand * DEMAND_CHARGES['maximum_demand']
-        
-        # On-peak demand charge, applied to highest draw during on-peak hours
-        timestamps_pd = [pd.Timestamp(ts) for ts in timestamps]
+
+        timestamps_pd = [pd.Timestamp(ts, unit='s') for ts in timestamps]
         on_peak_mask = np.array([get_tou_period(ts) == 'on_peak' for ts in timestamps_pd])
-        
+
         if np.any(on_peak_mask):
             on_peak_demand = np.max(grid_import[on_peak_mask])
             on_peak_demand_charge = on_peak_demand * DEMAND_CHARGES['on_peak_demand']
         else:
             on_peak_demand_charge = 0.0
-        
+
         demand_charge_total = max_demand_charge + on_peak_demand_charge
         total_cost += demand_charge_total
-    
+
     return {
         'total_cost': total_cost,
         'energy_charges': energy_charges,
         'demand_charges': demand_charge_total,
         'max_demand': max_demand,
-        'on_peak_demand': on_peak_demand
+        'on_peak_demand': on_peak_demand,
+        'demand_charges_applied': apply_demand_charges 
     }

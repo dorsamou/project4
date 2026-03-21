@@ -66,7 +66,7 @@ class MicrogridOptimizer:
         self.carbon_intensity = get_carbon_intensity_array(timestamps)
         
         # Get on-peak hours indicator
-        timestamps_pd = [pd.Timestamp(ts) for ts in timestamps]
+        timestamps_pd = [pd.Timestamp(ts, unit='s') for ts in timestamps]
         self.on_peak_hours = np.array([get_tou_period(ts) == 'on_peak' 
                                        for ts in timestamps_pd], dtype=float)
         
@@ -197,7 +197,11 @@ class MicrogridOptimizer:
             raise RuntimeError("Optimization produced no solution for soc")
         
         # Calculate cost breakdown
-        cost_breakdown = calculate_total_cost(grid_import_result, self.timestamps)
+        cost_breakdown = calculate_total_cost(
+                    grid_import_result, 
+                    self.timestamps,
+                    simulation_days=self.T // 24  # T is number of hours, divide by 24 for days
+                )
         
         # Calculate total emissions
         total_emissions_gco2 = calculate_total_emissions(grid_import_result, self.timestamps)

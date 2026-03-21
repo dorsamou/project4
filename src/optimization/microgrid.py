@@ -13,7 +13,6 @@ from src.models.pv_generator import PVGenerator
 from src.models.battery_storage import BatteryStorage
 from src.optimization.optimizer import MicrogridOptimizer
 
-
 """
 Microgrid class represents a microgrid with loads, PV generators, and battery storage. It provides methods to
 aggregate load and generation profiles, calculate total battery capacity, and run optimization.
