@@ -1,6 +1,6 @@
 """
 File: app.py
-Description: Streamlit application for simulating microgrid optimization for challenge 3
+Description: Streamlit app for microgrid optimization simulation for challenge 3
 """
 
 import streamlit as st
@@ -46,7 +46,36 @@ st.markdown("""
 
 st.markdown('<p class="main-header">Microgrid Optimization Simulator</p>', unsafe_allow_html=True)
 
-# ── Session state ────────────────────────────────────────────────────────────
+#  Theme colors 
+COLOR_LOAD   = '#e760b8'
+COLOR_GRID   = '#0497a7'
+COLOR_PV     = '#f4a442'
+COLOR_SOC    = '#7c5cbf'
+COLOR_COST   = '#1a6b75'
+
+#  Helper: pink-themed info box 
+def pink_info(text: str, sidebar: bool = False):
+    html = (
+        "<div style='background-color:#fdf0f9; padding:0.5rem 0.75rem; "
+        "border-left: 4px solid #e760b8; border-radius: 0.25rem; "
+        "color: #2c3e50; font-size: 0.875rem; margin: 0.5rem 0;'>"
+        f"{text}</div>"
+    )
+    if sidebar:
+        st.sidebar.markdown(html, unsafe_allow_html=True)
+    else:
+        st.markdown(html, unsafe_allow_html=True)
+
+#  Helper: x-axis tick format based on simulation length 
+def xaxis_format(simulation_days: int) -> dict:
+    if simulation_days <= 3:
+        return dict(tickformat='%b %d %H:%M', dtick=3600000 * 6)
+    elif simulation_days <= 14:
+        return dict(tickformat='%b %d', dtick=3600000 * 24)
+    else:
+        return dict(tickformat='%b %d', dtick=3600000 * 24 * 3)
+
+#  Session state 
 if 'optimization_results' not in st.session_state:
     st.session_state.optimization_results = None
 if 'microgrid' not in st.session_state:
@@ -54,7 +83,7 @@ if 'microgrid' not in st.session_state:
 if 'comparison_runs' not in st.session_state:
     st.session_state.comparison_runs = []  # list of dicts, each a saved run
 
-# ── Sidebar ──────────────────────────────────────────────────────────────────
+#  Sidebar 
 st.sidebar.title("Microgrid Configuration")
 
 load_assets    = [name for name, info in DATASETS.items() if info['type'] in ['load', 'loadwev']]
@@ -88,7 +117,7 @@ selected_batteries = st.sidebar.multiselect(
 has_battery = len(selected_batteries) > 0
 
 st.sidebar.markdown("### Simulation Period")
-st.sidebar.info("Available data: 2018-01-01 to 2019-12-31")
+pink_info("Available data: 2018-01-01 to 2019-12-31", sidebar=True)
 
 col1, col2 = st.sidebar.columns(2)
 with col1:
@@ -126,7 +155,7 @@ objective_type = st.sidebar.radio(
     }[x],
 )
 
-# ── Advanced Settings — battery options only shown when battery is selected ──
+#  Advanced Settings — battery options only shown when battery is selected 
 with st.sidebar.expander("Advanced Settings"):
 
     if has_battery:
@@ -176,23 +205,7 @@ obj_label = {
     "weighted": f"Weighted (α={cost_weight}, β={emissions_weight})"
 }
 
-# ── Theme colors ─────────────────────────────────────────────────────────────
-COLOR_LOAD   = '#e760b8'
-COLOR_GRID   = '#0497a7'
-COLOR_PV     = '#f4a442'
-COLOR_SOC    = '#7c5cbf'
-COLOR_COST   = '#1a6b75'
-
-# ── Helper: x-axis tick format based on simulation length ────────────────────
-def xaxis_format(simulation_days: int) -> dict:
-    if simulation_days <= 3:
-        return dict(tickformat='%b %d %H:%M', dtick=3600000 * 6)   # every 6 hrs
-    elif simulation_days <= 14:
-        return dict(tickformat='%b %d', dtick=3600000 * 24)         # every day
-    else:
-        return dict(tickformat='%b %d', dtick=3600000 * 24 * 3)     # every 3 days
-
-# ── Helper: build a results plot ─────────────────────────────────────────────
+#  Helper: build a results plot 
 def build_results_figure(results, microgrid, start, end, include_soc_penalty, soc_min, soc_max):
     from src.optimization.pricing import get_price_array
 
@@ -217,7 +230,7 @@ def build_results_figure(results, microgrid, start, end, include_soc_penalty, so
     fig = make_subplots(
         rows=n_rows, cols=1,
         subplot_titles=subplot_titles,
-        vertical_spacing=0.08,
+        vertical_spacing=0.14,
         row_heights=row_heights
     )
 
@@ -265,7 +278,7 @@ def build_results_figure(results, microgrid, start, end, include_soc_penalty, so
     if has_batt:
         fig.update_yaxes(title_text="Energy (kWh)", row=2, col=1)
     fig.update_yaxes(title_text="Cost ($)", row=cost_row, col=1)
-    fig.update_layout(height=320 * n_rows, showlegend=True, hovermode='x unified')
+    fig.update_layout(height=380 * n_rows, showlegend=True, hovermode='x unified')
 
     return fig, energy_prices, hourly_costs, load_profile, pv_profile
 
@@ -330,7 +343,7 @@ with tab1:
         st.write(f"**Maximum Demand Charge:** ${DEMAND_CHARGES['maximum_demand']:.2f}/kW (applied for simulations ≥ 28 days)")
         st.write(f"**On-Peak Demand Charge:** ${DEMAND_CHARGES['on_peak_demand']:.2f}/kW (applied for simulations ≥ 28 days)")
 
-# ── Tab 2: Run Optimization ───────────────────────────────────────────────────
+#  Tab 2: Run Optimization
 with tab2:
     st.markdown('<p class="sub-header">Run Optimization</p>', unsafe_allow_html=True)
 
@@ -347,14 +360,12 @@ with tab2:
         """)
 
         if objective_type == "weighted":
-            st.info(
-                f"**Weighted objective:** α={cost_weight} × Cost + β={emissions_weight} × Emissions. "
-                "Because cost (dollars) and emissions (gCO₂e) are on different scales, "
-                "adjusting the weights changes which objective dominates."
+            pink_info(
+                f"<b>Weighted objective:</b> α={cost_weight} × Cost + β={emissions_weight} × Emissions."
             )
 
         if simulation_days < 28:
-            st.info("**Demand charges** are a monthly billing concept and will not be applied for this simulation period. Run ≥ 28 days to include them.")
+            pink_info("<b>Demand charges</b> are a monthly billing concept and will not be applied for this simulation period. Run ≥ 28 days to include them.")
 
         if st.button("Run Optimization", type="primary", use_container_width=True):
             with st.spinner("Building microgrid model..."):
@@ -396,18 +407,18 @@ with tab2:
                     with col3:
                         st.metric("Solver Status", results['status'])
 
-                    st.info("Switch to the 'Results' tab to see detailed visualizations.")
+                    pink_info("Switch to the 'Results' tab to see detailed visualizations.")
                 except Exception as e:
                     st.error(f"Optimization failed: {str(e)}")
                     if verbose_optimization:
                         st.exception(e)
 
-# ── Tab 3: Results ────────────────────────────────────────────────────────────
+#  Tab 3: Results 
 with tab3:
     st.markdown('<p class="sub-header">Optimization Results</p>', unsafe_allow_html=True)
 
     if st.session_state.optimization_results is None:
-        st.info("No results yet. Please run the optimization from the 'Run Optimization' tab.")
+        pink_info("No results yet. Please run the optimization from the 'Run Optimization' tab.")
     else:
         results   = st.session_state.optimization_results
         microgrid = st.session_state.microgrid
@@ -427,7 +438,7 @@ with tab3:
             st.metric("Grid Import", f"{np.sum(results['grid_import']):,.1f} kWh")
 
         if not results['cost_breakdown'].get('demand_charges_applied', True):
-            st.info("**Demand charges not applied** — run ≥ 28 days to include monthly demand charges.")
+            pink_info("<b>Demand charges not applied</b> — run ≥ 28 days to include monthly demand charges.")
 
         # Cost breakdown
         st.markdown("---")
@@ -465,15 +476,13 @@ with tab3:
         if battery_kwh > 0 and has_battery:
             st.markdown("---")
             st.markdown("### Battery Performance")
-            col1, col2, col3 = st.columns(3)
+            col1, col2 = st.columns(2)
             total_charging    = np.sum(np.maximum(0,  results['battery_power']))
             total_discharging = np.sum(np.maximum(0, -results['battery_power']))
             with col1:
                 st.metric("Total Charging",    f"{total_charging:,.1f} kWh")
             with col2:
                 st.metric("Total Discharging", f"{total_discharging:,.1f} kWh")
-            with col3:
-                st.metric("Equivalent Cycles", f"{total_charging/battery_kwh:.2f}")
 
             soc = results['soc']
             st.write(f"**SOC Range:** {soc.min():.1f} – {soc.max():.1f} kWh "
@@ -521,14 +530,14 @@ with tab3:
             })
             st.success(f"Saved '{run_label}' to Comparison tab.")
 
-# ── Tab 4: Comparison ─────────────────────────────────────────────────────────
+# Tab 4: Comparison 
 with tab4:
     st.markdown('<p class="sub-header">Scenario Comparison</p>', unsafe_allow_html=True)
 
     runs = st.session_state.comparison_runs
 
     if not runs:
-        st.info("No runs saved yet. Run an optimization and click **Save to Comparison** in the Results tab.")
+        pink_info("No runs saved yet. Run an optimization and click <b>Save to Comparison</b> in the Results tab.")
     else:
         # Clear button
         if st.button("Clear All Runs"):
@@ -631,7 +640,7 @@ with tab4:
             mime="text/csv"
         )
 
-# ── Footer ────────────────────────────────────────────────────────────────────
+#  Footer 
 st.markdown("---")
 st.markdown(
     "<div style='text-align: center; color: gray; padding: 1rem;'>"
