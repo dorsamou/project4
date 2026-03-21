@@ -1,3 +1,10 @@
+"""
+File: battery_storage.py
+
+Description: This file defines the BatteryStorage class, which represents a battery storage asset in the energy system.
+It includes specific attributes for battery storage, such as rating in kW and kWh.
+"""
+
 from src.models.abstract_asset import Asset
 from src.config.data_config  import DATASETS
 

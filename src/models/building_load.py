@@ -1,5 +1,11 @@
-import numpy as np
+"""
+File: building_load.py
 
+Description: This file defines the BuildingLoad class, which represents a building load asset in the energy system.
+It includes specific attributes for building load, such as cal_real and cal_reactive for spike detection.
+"""
+
+import numpy as np
 from src.models.abstract_asset import Asset
 from src.config.data_config  import DATASETS
 

@@ -1,3 +1,5 @@
+ #nested dictionary with  names as keys and dictionaries as values containing type(load, pv, battery), filename, rating
+#defines what it run in run_formatting.py 
 DATASETS = {
     # Building Loads cal_real and cal_reactive from https://github.com/sushilsilwal3/UCSD-Microgrid-Database/blob/master/Python%20Scripts/PythonBuildingLoad.py
     #columns: DateTime, RealPower, ReactivePower
@@ -251,9 +253,19 @@ DATASETS = {
     }
 }
 
+#column names of csv data 
 COLUMN_NAMES = {
-    "datetime": "DateTime",
+    "time_col": "DateTime",
     "real_power": "RealPower",
     "reactive_power": "ReactivePower",
     "soc": "SOC"
 }
+
+# Data year range (for holiday calendar and validation) with buffers from actual data availability
+DATA_YEAR_MIN = 2017
+DATA_YEAR_MAX = 2020
+
+# Actual data availability
+DATA_START_DATE = "2018-01-01"
+DATA_END_DATE = "2019-12-31"
+

@@ -1,3 +1,13 @@
+"""
+File: run_formatting.py
+
+Description: This script runs the formatting process for all datasets defined in the config.data_config.DATASETS dictionary. 
+It checks if a formatted file already exists for each dataset and skips formatting if it does. 
+If not, it uses the appropriate formatter class based on the dataset type to format the raw data and save the formatted dataframe.
+-python run_formatting.py
+delete the formatted directory in order to run formatting again
+"""
+
 import os 
 from src.data_formatting.formatting import (
     BatteryStorageFormatter,
@@ -6,12 +16,11 @@ from src.data_formatting.formatting import (
     combine_power,
     save_formatted_df
 )
-from config.data_config import DATASETS
+from src.config.data_config import DATASETS
 from src.config.paths import FORMATTED_DATA_PATH
 
-#delete the formatted directory in order to run formatting again
-
-def run_formatting():
+def run_formatting() -> None:
+    #loops through the DATASETS dictionary and formats each dataset based on its type using the appropriate formatter class, then saves the formatted dataframe to the FORMATTED_DATA_PATH
     for asset, data_info in DATASETS.items():
         ftype = data_info["type"]
         filename = data_info["raw_filename"]

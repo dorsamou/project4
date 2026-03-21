@@ -1,10 +1,14 @@
+"""
+File: pricing.py
+Description: This module defines functions to determine time-of-use (TOU) periods, calculate energy prices based on TOU schedules, and compute total costs for grid import considering both energy charges and demand charges.
+"""
 import pandas as pd
 import numpy as np
 from src.data_formatting.formatting import is_business_day
 from src.config.pricing_config import *
 
+#returns off-peak, mid_peak, or on-peak based on timestamp and schedule
 def get_tou_period(timestamp: pd.Timestamp) -> str:
-    #returns 'on_peak', 'off_peak', or 'super_off_peak' based on the timestamp
     hour = timestamp.hour
     month = timestamp.month
     is_summer = month in SUMMER_MONTHS
@@ -27,17 +31,19 @@ def get_tou_period(timestamp: pd.Timestamp) -> str:
     
     return 'off_peak'
     
+#returns energy price based on timestamp and schedule
 def get_energy_price(timestamp: pd.Timestamp) -> float:
     period = get_tou_period(timestamp)
     return ENERGY_RATES[period]
 
-
+#returns array of energy prices for given timestamps
 def get_price_array(timestamps: np.ndarray) -> np.ndarray:
     #convert to pd.Timestamp since functions use pd.Timestamp
     timestamps_pd = [pd.Timestamp(ts) for ts in timestamps]
     prices = [get_energy_price(ts) for ts in timestamps_pd]
     return np.array(prices)
 
+#calculates total cost based on grid import, timestamps, and whether to include demand charges
 def calculate_total_cost(grid_import: np.ndarray, timestamps: np.ndarray, include_demand_charges: bool = True) -> dict:
     #used for after optimization to analyze costs
     energy_prices = get_price_array(timestamps)

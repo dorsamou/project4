@@ -1,4 +1,5 @@
 
+#carbon intensity values by quarter and hour 
 CARBON_INTENSITY_BY_QUARTER = {
     'Q1': {
         0: 75.31,   # 12:01 AM - 1:00 AM
@@ -106,6 +107,7 @@ CARBON_INTENSITY_BY_QUARTER = {
     }
 }
 
+# Mapping of quarters to their corresponding months
 QUARTER_MONTHS = {
     'Q1': [1, 2, 3],
     'Q2': [4, 5, 6],

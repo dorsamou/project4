@@ -1,43 +1,47 @@
 """
 File: formatting.py
-Author: adapted from @author: Sushil Silwal, ssilwal@ucsd.edu
-Description: This module contains functions for formatting and cleaning datasets.
+adapted from @author: Sushil Silwal, ssilwal@ucsd.edu
+
+Description: Clean and format raw microgrid time-series data for use in optimization. cleans data gaps, outliers(from sensors errors), negative values, 
+and inconsistent time intervals for the pv generator, battery storage, and building load data using helper functions and formatting 
+classes for each data type. The formatted data is saved to a new directory for use in the optimization.
 """
 
 import os
 import pandas as pd
 import numpy as np
 from scipy.ndimage import gaussian_filter1d
-import datetime
 import holidays
 from typing import Optional
 from src.config.paths import RAW_DATA_PATH, FORMATTED_DATA_PATH
+from src.config.data_config import DATA_YEAR_MIN, DATA_YEAR_MAX, COLUMN_NAMES
+from abc import ABC, abstractmethod
 
 #Helper functions
+
 # returns True if the given timestamp is a US business day (not a weekend or holiday)
-def is_business_day(timestamp: pd.Timestamp, year_min: int = 2015, year_max: int = 2020) -> bool:
+def is_business_day(timestamp: pd.Timestamp, year_min: int = DATA_YEAR_MIN, year_max: int = DATA_YEAR_MAX) -> bool:
     day = timestamp.date()
     # Monday = 0 - Sunday = 6
     #creates object containing US holidays with years that span the data range 
     US_HOLIDAYS = holidays.US(years=range(year_min, year_max))
     return (timestamp.weekday() < 5) and (day not in US_HOLIDAYS)
 
-#returns the index to replace missing data with 
-#passes in the current index and the full timestamps series from the dataframe
+#returns the index to replace missing data with based on the index of the missing value 
 def replace_with(index: int, timestamps: pd.Series) -> int:
-    #first timestamp - not enough historical data to replace missing value
+    #first timestamp -> not enough historical data to replace missing value
     if index <= 0:
         return 0
     
-    #first day - use previous time stamp to replace missing value for the first day (96 intervals since 15-min intervals)
+    #first day -> use previous time stamp to replace missing value for the first day (96 intervals since 15-min intervals)
     elif index < 96:
         return index - 1
     
-    #first week - use same time stamp from previous day to replace missing value for the first week
+    #first week -> use same time stamp from previous day to replace missing value for the first week
     elif index < 96 * 7:
         return index - 96
     
-    #beyond first week - replace missing value with same time stamp from a similar day(weekday, holiday, weekend)
+    #beyond first week -> replace missing value with same time stamp from a similar day(weekday, holiday, weekend)
     else :
         cur_ts = timestamps.iloc[index]
         n = 1
@@ -50,7 +54,8 @@ def replace_with(index: int, timestamps: pd.Series) -> int:
                 return candidate_idx
             n += 1
 
-def combine_power(df1, df2, time_col="DateTime"):
+#merge the power columns of two dataframes based on the timestamp, filling missing values with 0 and summing the power values for matching timestamps
+def combine_power(df1: pd.DataFrame, df2: pd.DataFrame, time_col: str = COLUMN_NAMES["time_col"]) -> pd.DataFrame:
     merged = pd.merge(df1, df2, on=time_col, how="outer")
     #merge into one column 
     merged["RealPower"] = merged["RealPower_x"].fillna(0) + merged["RealPower_y"].fillna(0)
@@ -58,7 +63,7 @@ def combine_power(df1, df2, time_col="DateTime"):
 
 
 #fills in the missing timetsamps and fills values with NaN
-def fill_missing_timestamps(df: pd.DataFrame, time_col: str = "DateTime", freq_min: int = 15) -> pd.DataFrame:
+def fill_missing_timestamps(df: pd.DataFrame, time_col: str = COLUMN_NAMES["time_col"], freq_min: int = 15) -> pd.DataFrame:
     df = df.copy()
     df[time_col] = pd.to_datetime(df[time_col], errors="coerce")
     df = df.dropna(subset=[time_col]).sort_values(time_col).reset_index(drop=True)
@@ -80,8 +85,8 @@ def fill_missing_timestamps(df: pd.DataFrame, time_col: str = "DateTime", freq_m
 
     return df
 
-
-def save_formatted_df(df: pd.DataFrame, raw_filename: str, suffix: str = "_formatted"):
+#saves the formatted dataframe to a new csv file in the formatted data directory with the same base name as the raw file and a suffix, unless the formatted file already exsits 
+def save_formatted_df(df: pd.DataFrame, raw_filename: str, suffix: str = "_formatted") -> str:
     #check if the formatted file directory exists, if not create it
     if not os.path.exists(FORMATTED_DATA_PATH):
         os.makedirs(FORMATTED_DATA_PATH)
@@ -100,7 +105,13 @@ def save_formatted_df(df: pd.DataFrame, raw_filename: str, suffix: str = "_forma
 
 
 
-class BaseFormatter:
+"""
+BaseFormatter
+common constructor, loading, aligning, and hourly aggreagtion for 15 min intervals to hourly data 
+Parameters:
+- raw_filename: the name of the raw data file to load
+"""
+class BaseFormatter(ABC):
     def __init__(self, raw_filename: str):
         self.raw_filename = raw_filename
         self.raw_path = os.path.join(RAW_DATA_PATH, raw_filename)
@@ -110,23 +121,37 @@ class BaseFormatter:
     def load_raw(self) -> pd.DataFrame:
         return pd.read_csv(self.raw_path, sep=",", parse_dates=["DateTime"])
     
-    def load_and_align(self, time_col="DateTime", freq_min: int = 15) -> pd.DataFrame:
+    def load_and_align(self, time_col: str = COLUMN_NAMES["time_col"], freq_min: int = 15) -> pd.DataFrame:
         df = self.load_raw()
 
         df = fill_missing_timestamps(df, time_col=time_col, freq_min=freq_min)
         return df
     
-    def aggregate_hourly_kW(self, df):
+    def aggregate_hourly_kW(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df.set_index("DateTime")  
         df = df.resample("h").mean()
         df = df.reset_index()
         return df
+    
+    @abstractmethod
+    def run(self, save: bool = True) -> pd.DataFrame:
+        pass
 
 
+
+"""
+Formatter class for Battery Storage data. 
+Battery data is expected to have at  two columns: DateTime and RealPower (in kW).
+The RealPower can be positive for charging and negative for discharging. 
+Parameters:
+- raw_filename: the name of the raw data file to load
+- rating_kw: the maximum power rating of the battery in kW, used to identify and replace outliers
+- rating_kwh: the energy capacity of the battery in kWh
+"""
 class BatteryStorageFormatter(BaseFormatter):
     def __init__(self, raw_filename: str, rating_kw: float, rating_kwh: Optional[float] = None):
         super().__init__(raw_filename)
-        self.rating_kwh = rating_kwh
+        self.rating_kwh = rating_kwh 
         self.rating_kw = rating_kw
 
     def run(self, save: bool = True) -> pd.DataFrame:
@@ -157,6 +182,15 @@ class BatteryStorageFormatter(BaseFormatter):
             save_formatted_df(df, self.raw_filename)
         return df
 
+"""
+Formatter class for Building Load data.
+Building load data is expected to have at two columns: DateTime, RealPower, and ReactivePower (in kW).
+The RealPower should be positive for consumption.
+Parameters:
+- raw_filename: the name of the raw data file to load
+- cal_real: the multiplier for the spike detection threshold for real power, default 0.4
+- cal_reactive: the multiplier for the spike detection threshold for reactive power, default 0.4
+"""
 class BuildingLoadFormatter(BaseFormatter):
     def __init__(self, raw_filename: str, cal_real: float = 0.4, cal_reactive: float = 0.4):
         super().__init__(raw_filename)
@@ -219,9 +253,15 @@ class BuildingLoadFormatter(BaseFormatter):
             save_formatted_df(df, self.raw_filename)
         return df
 
-#TODO set all negative values in input data to 0, done in get_generation_profile in pv_generator.py currently
+
+"""
+Formatter class for PV Generator data.
+PV generator data is expected to have at least two columns: DateTime and RealPower (in kW).
+The RealPower should be positive for generation.
+Parameters:
+- raw_filename: the name of the raw data file to load
+"""
 class PVGeneratorFormatter(BaseFormatter):
-    #DateTime, RealPower
     def __init__(self, raw_filename: str):
         super().__init__(raw_filename)
 

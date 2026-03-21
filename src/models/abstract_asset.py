@@ -1,3 +1,9 @@
+"""
+File: abstract_asset.py
+
+Description: This file defines the abstract base class for assets in a microgrid, such as batteries, PV generators, and building loads.
+It provides common functionality for loading data, retrieving real and reactive power, and handling date ranges.
+"""
 
 import pandas as pd
 import numpy as np
@@ -7,19 +13,22 @@ from src.config.data_config import DATASETS, COLUMN_NAMES
 from src.config.paths import FORMATTED_DATA_PATH
 
 
-#provides an abstract base class for assets in a microgrid(batteries, pv generators, etc.)
+"""
+provides an abstract base class for assets in a microgrid(batteries, pv generators, etc.)
+Parameters:
+- name: the name of the asset, which corresponds to a key in the DATASETS configuration in data_config.py
+"""
 class Asset(ABC):
     def __init__(self, name):
         self.name = name
-        #check if the name exists in the DATASETS config
+        #check if the name exists in the DATASETS dictionary
         if name not in DATASETS:
-            raise ValueError(f"Dataset '{name}' not found in configuration.")
-        self.df = None 
-        #when the object is created, load the data 
+            raise ValueError(f"Dataset '{name}' not found")
+        self.df = None
         self.load_data()
 
     def load_data(self) -> None:
-        #loads the data from the formatted file into the member variable df
+        #loads the data from the formatted file into the member df
         formatted_file_path = os.path.join(
             FORMATTED_DATA_PATH,
             DATASETS[self.name]["formatted_filename"]
@@ -31,6 +40,7 @@ class Asset(ABC):
         self.df = pd.read_csv(formatted_file_path, parse_dates=["DateTime"])
         self.df = self.df.sort_values("DateTime").reset_index(drop=True)
 
+    # returns a dataframe constaining the data for the asset from start to end date if specified 
     def get_df(self, start=None, end=None) -> pd.DataFrame:
         #converts start and end to datetime if they are provided
         if start is not None:
@@ -50,6 +60,7 @@ class Asset(ABC):
 
         return df
     
+    #returns the power values for the asset from start to end date in a numpy array 
     def get_real_power(self, start=None, end=None) -> np.ndarray:
         df = self.get_df(start, end)
         #check if the real power column exists
@@ -57,6 +68,7 @@ class Asset(ABC):
             raise ValueError(f"Real power column '{COLUMN_NAMES['real_power']}' not found in dataset for asset '{self.name}'.")
         return df[COLUMN_NAMES["real_power"]].values
     
+    # returns the reactive power values for the asset from start to end date in a numpy array
     def get_reactive_power(self, start=None, end=None) -> np.ndarray:
         df = self.get_df(start, end)
         #check if the reactive power column exists
@@ -64,11 +76,13 @@ class Asset(ABC):
             raise ValueError(f"Reactive power column '{COLUMN_NAMES['reactive_power']}' not found in dataset for asset '{self.name}'.")
         return df[COLUMN_NAMES["reactive_power"]].values
     
+    #returns the datetime values for the asset from start to end date in a numpy array
     def get_datetime_index(self, start=None, end=None) -> np.ndarray:
         df = self.get_df(start, end)
         if COLUMN_NAMES["datetime"] not in df.columns:
             raise ValueError(f"Datetime column '{COLUMN_NAMES['datetime']}' not found in dataset for asset '{self.name}'.")
         return df[COLUMN_NAMES["datetime"]].values
+    
     
     def check_dates_exists(self, start=None, end=None) -> bool:
         if start and start < self.df["DateTime"].min():

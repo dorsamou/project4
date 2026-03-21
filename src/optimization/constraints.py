@@ -1,4 +1,7 @@
-
+"""
+File: constraints.py
+Description: This module defines functions to create constraints for the microgrid optimization problem, including power balance, battery power limits, SOC limits, battery dynamics, initial SOC, energy balance, and non-negativity of grid import. The main function `create_microgrid_constraints` aggregates all these constraints into a single list for use in the optimization problem.
+"""
 import cvxpy as cp
 import numpy as np
 
@@ -14,7 +17,7 @@ def battery_soc_kwh(SOC: cp.Variable, battery_capacity: float) -> list:
     return [SOC >= 0, SOC <= battery_capacity]
 
 def battery_dynamics(SOC: cp.Variable, battery_power: cp.Variable, round_trip_efficiency: float = 1) -> list:
-    return SOC[1:] == (SOC[:-1] + battery_power * round_trip_efficiency)
+    return [SOC[1:] == (SOC[:-1] + battery_power * round_trip_efficiency)]
 
 def battery_initial_soc(SOC: cp.Variable, battery_capacity: float) -> list:
     return [SOC[0] == battery_capacity * 0.5]  # Initial SOC at 50% of capacity
