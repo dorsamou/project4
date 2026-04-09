@@ -18,6 +18,9 @@ from src.optimization.microgrid import Microgrid
 from src.config.data_config import DATASETS
 from src.config.pricing_config import ENERGY_RATES, DEMAND_CHARGES
 
+
+st.write("DEBUG PANDAS:", pd.__version__)
+
 st.set_page_config(
     page_title="Microgrid Optimization Simulator",
     page_icon="",
