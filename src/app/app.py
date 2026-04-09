@@ -19,16 +19,12 @@ from src.config.data_config import DATASETS
 from src.config.pricing_config import ENERGY_RATES, DEMAND_CHARGES
 
 
-st.write("DEBUG PANDAS:", pd.__version__)
-
 st.set_page_config(
     page_title="Microgrid Optimization Simulator",
     page_icon="",
     layout="wide",
     initial_sidebar_state="expanded"
 )
-st.write("DEBUG APP PATH:", os.getcwd())
-st.write("DEBUG FILE:", os.path.dirname(__file__))
 
 st.markdown("""
     <style>
@@ -472,8 +468,7 @@ with tab3:
         # Time series
         st.markdown("---")
         st.markdown("### Time Series Analysis")
-        st.write("DEBUG:", pd.to_datetime(results['timestamps'][0], unit='s'), pd.to_datetime(results['timestamps'][-1], unit='s'), len(results['timestamps']))
-        
+
         fig, energy_prices, hourly_costs, load_profile, pv_profile = build_results_figure(
             results, microgrid, start_date, end_date, include_soc_penalty, soc_min, soc_max
         )
