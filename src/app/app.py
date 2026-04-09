@@ -468,6 +468,8 @@ with tab3:
         # Time series
         st.markdown("---")
         st.markdown("### Time Series Analysis")
+        st.write("DEBUG:", pd.to_datetime(results['timestamps'][0], unit='s'), pd.to_datetime(results['timestamps'][-1], unit='s'), len(results['timestamps']))
+        
         fig, energy_prices, hourly_costs, load_profile, pv_profile = build_results_figure(
             results, microgrid, start_date, end_date, include_soc_penalty, soc_min, soc_max
         )
