@@ -402,6 +402,7 @@ with tab2:
                         verbose=verbose_optimization
                     )
                     st.session_state.optimization_results = results
+                    st.write("DEBUG TS RAW:", results['timestamps'][:5])
                     st.success("Optimization completed successfully!")
 
                     col1, col2, col3 = st.columns(3)
