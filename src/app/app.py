@@ -24,6 +24,8 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+st.write("DEBUG APP PATH:", os.getcwd())
+st.write("DEBUG FILE:", os.path.dirname(__file__))
 
 st.markdown("""
     <style>
