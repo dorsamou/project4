@@ -99,12 +99,8 @@ class Microgrid:
         return total_kw, total_kwh
     
     def get_timestamps(self, start=None, end=None) -> np.ndarray:
-        # Create hourly timestamps from start to end (exclusive)
-        # The 'H' frequency creates hourly timestamps at the start of each hour
         timestamps = pd.date_range(start=start, end=end, freq='h', inclusive='left')
-        
-        # Convert to Unix epoch seconds
-        return (timestamps.astype(np.int64) // 10**9).to_numpy()
+        return np.array([int(t.timestamp()) for t in timestamps])
     
     def optimize(self, start_date, end_date, objective_type='cost', 
                 round_trip_efficiency=0.95, include_soc_penalty=True, 
