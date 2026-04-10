@@ -12,4 +12,4 @@ streamlit run run_app.py
 
 From the interface you can add generators and batteries, set capacity and SOC limits, pick a date range from the UCSD dataset, choose an objective, and run the optimization. Results render as dispatch plots, SOC charts, and cost/emissions summaries.
 
-The app can also be deployed using the following link [link text](https://project4-zxjkb7xfra9qgzsonm4yaf.streamlit.app/)
+The app can also be deployed using the following [link](https://project4-zxjkb7xfra9qgzsonm4yaf.streamlit.app/)
