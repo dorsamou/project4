@@ -19,10 +19,10 @@ from abc import ABC, abstractmethod
 
 #Helper functions
 
-# returns True if the given timestamp is a US business day (not a weekend or holiday)
+#returns True if the given timestamp is a US business day (not a weekend or holiday)
 def is_business_day(timestamp: pd.Timestamp, year_min: int = DATA_YEAR_MIN, year_max: int = DATA_YEAR_MAX) -> bool:
     day = timestamp.date()
-    # Monday = 0 - Sunday = 6
+    #Monday = 0 - Sunday = 6
     #creates object containing US holidays with years that span the data range 
     US_HOLIDAYS = holidays.US(years=range(year_min, year_max))
     return (timestamp.weekday() < 5) and (day not in US_HOLIDAYS)
@@ -54,21 +54,21 @@ def replace_with(index: int, timestamps: pd.Series) -> int:
                 return candidate_idx
             n += 1
 
-#merge the power columns of two dataframes based on the timestamp, filling missing values with 0 and summing the power values for matching timestamps
+#Merge the power columns of two dataframes based on the timestamp, filling missing values with 0 and summing the power values for matching timestamps
 def combine_power(df1: pd.DataFrame, df2: pd.DataFrame, time_col: str = COLUMN_NAMES["time_col"]) -> pd.DataFrame:
     merged = pd.merge(df1, df2, on=time_col, how="outer")
-    #merge into one column 
+    #Merge into one column 
     merged["RealPower"] = merged["RealPower_x"].fillna(0) + merged["RealPower_y"].fillna(0)
     return merged[[time_col, "RealPower"]]
 
 
-#fills in the missing timetsamps and fills values with NaN
+#Fill missing timestamps in the dataframe with NaN values, ensuring a consistent time index at the specified frequency (default 15 minutes)
 def fill_missing_timestamps(df: pd.DataFrame, time_col: str = COLUMN_NAMES["time_col"], freq_min: int = 15) -> pd.DataFrame:
     df = df.copy()
     df[time_col] = pd.to_datetime(df[time_col], errors="coerce")
     df = df.dropna(subset=[time_col]).sort_values(time_col).reset_index(drop=True)
 
-    # Ensure RealPower stays numeric so it doesn't get dropped
+    #Ensure RealPower stays numeric so it doesn't get dropped
     if "RealPower" in df.columns:
         df["RealPower"] = pd.to_numeric(df["RealPower"], errors="coerce")
 
@@ -106,7 +106,7 @@ def save_formatted_df(df: pd.DataFrame, raw_filename: str, suffix: str = "_forma
 
 
 """
-BaseFormatter
+Base Formatter class with
 common constructor, loading, aligning, and hourly aggreagtion for 15 min intervals to hourly data 
 Parameters:
 - raw_filename: the name of the raw data file to load
@@ -162,13 +162,13 @@ class BatteryStorageFormatter(BaseFormatter):
         power_col = df.columns[1]
         timestamps = df[df.columns[0]]
 
-        # Fill missing values
+        #Fill missing values
         for i in range(len(df)):
             if pd.isna(df.at[i, power_col]):
                 rep = replace_with(i, timestamps)
                 df.at[i, power_col] = df.at[rep, power_col]
 
-        # Enforce rating: replace over-limit values
+        #Enforce rating: replace over-limit values
         replaced = 0
         for i in range(len(df)):
             val = df.at[i, power_col]
@@ -200,7 +200,7 @@ class BuildingLoadFormatter(BaseFormatter):
 
     def run(self, save: bool = True) -> pd.DataFrame:
         df = self.load_and_align(freq_min=15)
-        # DateTime, RealPower, ReactivePower
+        #DateTime, RealPower, ReactivePower
         if df.shape[1] < 2:
             raise ValueError("Load file must have at least DateTime and one power column")
 
@@ -222,10 +222,10 @@ class BuildingLoadFormatter(BaseFormatter):
         error_real = 0
         error_reactive = 0
 
-        # Spike detection: use sliding 672-sample (~7 days * 96) window avg as original script did
+        #Spike detection: use sliding 672-sample (~7 days * 96) window avg as original script did
         for j in range(n):
             for col in power_cols:
-                # window average safe calc
+                #window average safe calc
                 if j < n - 672:
                     window_vals = df_smooth[col].iloc[j:j+672]
                 else:
@@ -234,7 +234,7 @@ class BuildingLoadFormatter(BaseFormatter):
                 window_avg = np.mean(np.abs(window_vals)) if len(window_vals) > 0 else 0.0
                 if window_avg == 0:
                     window_avg = 1e-6
-                # determine threshold: real vs reactive heuristics
+                #determine threshold: real vs reactive heuristics
                 if ("Real" in col) or ("real" in col.lower()) or (len(power_cols) == 1):
                     thresh = self.cal_real * window_avg
                 else:
@@ -272,7 +272,7 @@ class PVGeneratorFormatter(BaseFormatter):
         real_power = df.columns[1]
         timestamps = df[df.columns[0]]
 
-        # from algorithm given in https://pubs.aip.org/aip/jrse/article/13/2/025301/926842/Open-source-multi-year-power-generation
+        #from algorithm given in https://pubs.aip.org/aip/jrse/article/13/2/025301/926842/Open-source-multi-year-power-generation
         smooth = gaussian_filter1d(df[real_power].fillna(0).values, sigma=1)
         pMax = np.max(smooth)
 

@@ -9,6 +9,11 @@ Description: This module defines the PVGenerator class, which represents a photo
 from src.models.abstract_asset import Asset
 import numpy as np
 
+
+"""
+PVGenerator class represents a photovoltaic (solar) generator in the energy system
+Inherits from the Asset class and includes specific attributes for PV generation.
+"""
 class PVGenerator (Asset):
     def __init__(self, name):
         super().__init__(name)\
